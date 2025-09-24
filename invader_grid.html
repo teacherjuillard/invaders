@@ -107,36 +107,38 @@
     const invaders = [
         {
             name: "Invader Vide",
-            hexCode: Array(16).fill("00"),
+            hexCode: Array(8).fill("00"),
             unlocked: false
         },
         {
             name: "Invader Plein",
-            hexCode: Array(16).fill("FF"),
+            hexCode: Array(8).fill("FF"),
             unlocked: false
         },
         {
             name: "Invader Croix",
-            hexCode: Array(16).fill("81"),
-            unlocked: false
-        },
-        {
-            name: "Invader Sourire",
-            hexCode: [
-                "00","42","00","00","00","00","00","00",
-                "00","00","00","00","81","24","3C","00"
-            ],
-            unlocked: false
-        },
-        {
-            name: "Invader Fusée",
-            hexCode: [
-                "81","C3","E7","81","81","81","81","81",
-                "81","C3","E7","DB","81","00","00","00"
-            ],
+            hexCode: Array(8).fill("81"),
             unlocked: false
         }
+        // Ajouter d'autres invaders 8x8 ici
     ];
+
+    const grid = document.getElementById('grid');
+    let currentTarget = 0;
+
+    // Création d'une grille 8x8
+    grid.style.gridTemplateColumns = "repeat(8, 30px)";
+    grid.style.gridTemplateRows = "repeat(8, 30px)";
+    for (let r = 0; r < 8; r++) {
+        for (let c = 0; c < 8; c++) {
+            const cell = document.createElement('div');
+            cell.classList.add('cell');
+            cell.dataset.row = r;
+            cell.dataset.col = c;
+            cell.addEventListener('click', () => cell.classList.toggle('active'));
+            grid.appendChild(cell);
+        }
+    }
 
     // --- Gestion du paramètre URL (compact : 32 caractères hexadécimaux) ---
     function getUrlParams() {
@@ -144,96 +146,44 @@
         return params.get('code');
     }
 
-    let customCode = getUrlParams();
-    if (customCode) {
-        let cleaned = customCode.toUpperCase().replace(/[^0-9A-F]/g, ""); // sécurité
-        if (cleaned.length === 32) {
-            let customHex = [];
-            for (let i = 0; i < 32; i += 2) {
-                customHex.push(cleaned.substring(i, i + 2));
-            }
-            invaders.splice(0, invaders.length, {
-                name: "Invader personnalisé",
-                hexCode: customHex,
-                unlocked: false
-            });
-        } else {
-            alert("⚠️ Le code fourni n'est pas valide : il faut exactement 32 caractères hexadécimaux.");
-        }
+    let customCode = getUrlParams(); 
+    if (customCode) { 
+        let cleaned = customCode.toUpperCase().replace(/[^0-9A-F]/g, ""); // sécurité 
+        if (cleaned.length === 16) { 
+            let customHex = []; 
+            for (let i = 0; i < 16; i += 2) { 
+                customHex.push(cleaned.substring(i, i + 2)); 
+            } 
+            invaders.splice(0, invaders.length, { name: "Invader personnalisé", hexCode: customHex, unlocked: false }); 
+        } else { 
+            alert("⚠️ Le code fourni n'est pas valide : il faut exactement 16 caractères hexadécimaux."); 
+        } 
     }
 
-    const grid = document.getElementById('grid');
-    const result = document.getElementById('result');
-    const unlockedDiv = document.getElementById('unlocked');
-
-    let currentTarget = 0;
-
+    function getGridHex8x8() {
+    let hexRows = [];
     for (let r = 0; r < 8; r++) {
-        for (let c = 0; c < 16; c++) {
-            const cell = document.createElement('div');
-            cell.classList.add('cell');
-            cell.dataset.row = r;
-            cell.dataset.col = c;
-            cell.addEventListener('click', () => {
-                cell.classList.toggle('active');
-            });
-            grid.appendChild(cell);
+        let bin = '';
+        for (let c = 0; c < 8; c++) {
+            const cell = document.querySelector(`.cell[data-row='${r}'][data-col='${c}']`);
+            // Le bit de gauche (c=0) devient MSB
+            bin += cell.classList.contains('active') ? '1' : '0';
         }
+        hexRows.push(parseInt(bin, 2).toString(16).padStart(2, '0').toUpperCase());
     }
+    return hexRows;
+}
 
-    function getGridHex() {
-        let hexCols = [];
-        for (let c = 0; c < 16; c++) {
-            let bin = '';
-            for (let r = 0; r <= 7; r++) { // lecture du bas vers le haut
-                const cell = document.querySelector(`.cell[data-row='${r}'][data-col='${c}']`);
-                bin += cell.classList.contains('active') ? '1' : '0';
-            }
-            hexCols.push(parseInt(bin, 2).toString(16).padStart(2, '0').toUpperCase());
-        }
-        return hexCols;
-    }
 
     function checkMatch() {
-        const currentHex = getGridHex();
+        const currentHex = getGridHex8x8();
         const targetHex = invaders[currentTarget].hexCode;
         if (JSON.stringify(currentHex) === JSON.stringify(targetHex)) {
             result.textContent = "✔️ Bravo !";
-            if (!invaders[currentTarget].unlocked) {
-                invaders[currentTarget].unlocked = true;
-                addToPokedex(invaders[currentTarget]);
-            }
+            invaders[currentTarget].unlocked = true;
         } else {
             result.textContent = "❌ Ce n'est pas le bon invader.";
         }
-    }
-
-    function addToPokedex(invader) {
-        const container = document.createElement('div');
-        container.classList.add('invader');
-        const grid = document.createElement('div');
-        grid.classList.add('mini-grid');
-        for (let r = 7; r >= 0; r--) { // affichage cohérent bas->haut
-            for (let c = 0; c < 16; c++) {
-                const colBin = parseInt(invader.hexCode[c], 16).toString(2).padStart(8, '0');
-                const cell = document.createElement('div');
-                cell.classList.add('mini-cell');
-                if (colBin[r] === '1') cell.classList.add('active');
-                grid.appendChild(cell);
-            }
-        }
-        const label = document.createElement('div');
-        label.textContent = invader.name;
-        container.appendChild(grid);
-        container.appendChild(label);
-        unlockedDiv.appendChild(container);
-    }
-
-    function nextMission() {
-        currentTarget = (currentTarget + 1) % invaders.length;
-        targetCode.textContent = invaders[currentTarget].hexCode.join(' ');
-        result.textContent = "";
-        clearGrid();
     }
 
     function clearGrid() {
@@ -241,7 +191,7 @@
     }
 
     function showCurrentCode() {
-        const currentHex = getGridHex();
+        const currentHex = getGridHex8x8();
         document.getElementById('current-code').textContent = "Code actuel : " + currentHex.join('');
     }
 </script>
