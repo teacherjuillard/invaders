@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Invader Grid</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            display: flex;
+            flex-direction: row;
+            gap: 40px;
+        }
+        #main {
+            flex: 2;
+        }
+        #reference {
+            flex: 1;
+        }
+        #grid {
+            display: grid;
+            grid-template-columns: repeat(16, 30px);
+            grid-template-rows: repeat(8, 30px);
+            gap: 2px;
+            margin-bottom: 20px;
+        }
+        .cell {
+            width: 30px;
+            height: 30px;
+            background-color: white;
+            border: 1px solid #ccc;
+            cursor: pointer;
+        }
+        .cell.active {
+            background-color: black;
+        }
+        #mission {
+            margin-bottom: 20px;
+            font-family: monospace;
+        }
+        #pokedex {
+            margin-top: 30px;
+        }
+        .invader {
+            display: inline-block;
+            margin: 10px;
+            text-align: center;
+        }
+        .mini-grid {
+            display: grid;
+            grid-template-columns: repeat(16, 5px);
+            grid-template-rows: repeat(8, 5px);
+            gap: 1px;
+            margin-bottom: 5px;
+        }
+        .mini-cell {
+            width: 5px;
+            height: 5px;
+            background-color: white;
+        }
+        .mini-cell.active {
+            background-color: black;
+        }
+        table {
+            border-collapse: collapse;
+        }
+        th, td {
+            border: 1px solid #ccc;
+            padding: 4px 8px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+<div id="main">
+    <h1>Invader Grid</h1>
+    <div id="grid"></div>
+    <button onclick="checkMatch()">Vérifier</button>
+    <button onclick="clearGrid()">Effacer tout</button>
+    <button onclick="showCurrentCode()">Montrer le code actuel</button>
+    <div id="result"></div>
+    <div id="current-code" style="margin-top:10px; font-family: monospace;"></div>
+</div>
+<div id="reference">
+    <h2>Table de conversion</h2>
+    <table>
+        <tr><th>Décimal</th><th>Hexa</th><th>Binaire</th></tr>
+        <tr><td>0</td><td>0</td><td>0000</td></tr>
+        <tr><td>1</td><td>1</td><td>0001</td></tr>
+        <tr><td>2</td><td>2</td><td>0010</td></tr>
+        <tr><td>3</td><td>3</td><td>0011</td></tr>
+        <tr><td>4</td><td>4</td><td>0100</td></tr>
+        <tr><td>5</td><td>5</td><td>0101</td></tr>
+        <tr><td>6</td><td>6</td><td>0110</td></tr>
+        <tr><td>7</td><td>7</td><td>0111</td></tr>
+        <tr><td>8</td><td>8</td><td>1000</td></tr>
+        <tr><td>9</td><td>9</td><td>1001</td></tr>
+        <tr><td>10</td><td>A</td><td>1010</td></tr>
+        <tr><td>11</td><td>B</td><td>1011</td></tr>
+        <tr><td>12</td><td>C</td><td>1100</td></tr>
+        <tr><td>13</td><td>D</td><td>1101</td></tr>
+        <tr><td>14</td><td>E</td><td>1110</td></tr>
+        <tr><td>15</td><td>F</td><td>1111</td></tr>
+    </table>
+</div>
+<script>
+    const invaders = [
+        {
+            name: "Invader Vide",
+            hexCode: Array(16).fill("00"),
+            unlocked: false
+        },
+        {
+            name: "Invader Plein",
+            hexCode: Array(16).fill("FF"),
+            unlocked: false
+        },
+        {
+            name: "Invader Croix",
+            hexCode: Array(16).fill("81"),
+            unlocked: false
+        },
+        {
+            name: "Invader Sourire",
+            hexCode: [
+                "00","42","00","00","00","00","00","00",
+                "00","00","00","00","81","24","3C","00"
+            ],
+            unlocked: false
+        },
+        {
+            name: "Invader Fusée",
+            hexCode: [
+                "81","C3","E7","81","81","81","81","81",
+                "81","C3","E7","DB","81","00","00","00"
+            ],
+            unlocked: false
+        }
+    ];
+
+    // --- Gestion du paramètre URL (compact : 32 caractères hexadécimaux) ---
+    function getUrlParams() {
+        const params = new URLSearchParams(window.location.search);
+        return params.get('code');
+    }
+
+    let customCode = getUrlParams();
+    if (customCode) {
+        let cleaned = customCode.toUpperCase().replace(/[^0-9A-F]/g, ""); // sécurité
+        if (cleaned.length === 32) {
+            let customHex = [];
+            for (let i = 0; i < 32; i += 2) {
+                customHex.push(cleaned.substring(i, i + 2));
+            }
+            invaders.splice(0, invaders.length, {
+                name: "Invader personnalisé",
+                hexCode: customHex,
+                unlocked: false
+            });
+        } else {
+            alert("⚠️ Le code fourni n'est pas valide : il faut exactement 32 caractères hexadécimaux.");
+        }
+    }
+
+    const grid = document.getElementById('grid');
+    const result = document.getElementById('result');
+    const unlockedDiv = document.getElementById('unlocked');
+
+    let currentTarget = 0;
+
+    for (let r = 0; r < 8; r++) {
+        for (let c = 0; c < 16; c++) {
+            const cell = document.createElement('div');
+            cell.classList.add('cell');
+            cell.dataset.row = r;
+            cell.dataset.col = c;
+            cell.addEventListener('click', () => {
+                cell.classList.toggle('active');
+            });
+            grid.appendChild(cell);
+        }
+    }
+
+    function getGridHex() {
+        let hexCols = [];
+        for (let c = 0; c < 16; c++) {
+            let bin = '';
+            for (let r = 0; r <= 7; r++) { // lecture du bas vers le haut
+                const cell = document.querySelector(`.cell[data-row='${r}'][data-col='${c}']`);
+                bin += cell.classList.contains('active') ? '1' : '0';
+            }
+            hexCols.push(parseInt(bin, 2).toString(16).padStart(2, '0').toUpperCase());
+        }
+        return hexCols;
+    }
+
+    function checkMatch() {
+        const currentHex = getGridHex();
+        const targetHex = invaders[currentTarget].hexCode;
+        if (JSON.stringify(currentHex) === JSON.stringify(targetHex)) {
+            result.textContent = "✔️ Bravo !";
+            if (!invaders[currentTarget].unlocked) {
+                invaders[currentTarget].unlocked = true;
+                addToPokedex(invaders[currentTarget]);
+            }
+        } else {
+            result.textContent = "❌ Ce n'est pas le bon invader.";
+        }
+    }
+
+    function addToPokedex(invader) {
+        const container = document.createElement('div');
+        container.classList.add('invader');
+        const grid = document.createElement('div');
+        grid.classList.add('mini-grid');
+        for (let r = 7; r >= 0; r--) { // affichage cohérent bas->haut
+            for (let c = 0; c < 16; c++) {
+                const colBin = parseInt(invader.hexCode[c], 16).toString(2).padStart(8, '0');
+                const cell = document.createElement('div');
+                cell.classList.add('mini-cell');
+                if (colBin[r] === '1') cell.classList.add('active');
+                grid.appendChild(cell);
+            }
+        }
+        const label = document.createElement('div');
+        label.textContent = invader.name;
+        container.appendChild(grid);
+        container.appendChild(label);
+        unlockedDiv.appendChild(container);
+    }
+
+    function nextMission() {
+        currentTarget = (currentTarget + 1) % invaders.length;
+        targetCode.textContent = invaders[currentTarget].hexCode.join(' ');
+        result.textContent = "";
+        clearGrid();
+    }
+
+    function clearGrid() {
+        document.querySelectorAll('.cell').forEach(cell => cell.classList.remove('active'));
+    }
+
+    function showCurrentCode() {
+        const currentHex = getGridHex();
+        document.getElementById('current-code').textContent = "Code actuel : " + currentHex.join('');
+    }
+</script>
+</body>
+</html>
