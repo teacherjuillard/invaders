@@ -11,12 +11,15 @@
             flex-direction: row;
             gap: 40px;
         }
+
         #main {
             flex: 2;
         }
+
         #reference {
             flex: 1;
         }
+
         #grid {
             display: grid;
             grid-template-columns: repeat(16, 30px);
@@ -24,6 +27,7 @@
             gap: 2px;
             margin-bottom: 20px;
         }
+
         .cell {
             width: 30px;
             height: 30px;
@@ -31,21 +35,26 @@
             border: 1px solid #ccc;
             cursor: pointer;
         }
+
         .cell.active {
             background-color: black;
         }
+
         #mission {
             margin-bottom: 20px;
             font-family: monospace;
         }
+
         #pokedex {
             margin-top: 30px;
         }
+
         .invader {
             display: inline-block;
             margin: 10px;
             text-align: center;
         }
+
         .mini-grid {
             display: grid;
             grid-template-columns: repeat(16, 5px);
@@ -53,156 +62,324 @@
             gap: 1px;
             margin-bottom: 5px;
         }
+
         .mini-cell {
             width: 5px;
             height: 5px;
             background-color: white;
         }
+
         .mini-cell.active {
             background-color: black;
         }
+
         table {
             border-collapse: collapse;
         }
-        th, td {
+
+        th,
+        td {
             border: 1px solid #ccc;
             padding: 4px 8px;
             text-align: center;
         }
     </style>
 </head>
+
 <body>
-<div id="main">
-    <h1>Invader Grid</h1>
-    <div id="grid"></div>
-    <button onclick="checkMatch()">Vérifier</button>
-    <button onclick="clearGrid()">Effacer tout</button>
-    <button onclick="showCurrentCode()">Montrer le code actuel</button>
-    <div id="result"></div>
-    <div id="current-code" style="margin-top:10px; font-family: monospace;"></div>
-</div>
-<script>
-    const invaders = [
-        {
-            name: "Invader Vide",
-            hexCode: Array(8).fill("00"),
-            unlocked: false
-        },
-        {
-            name: "Invader Plein",
-            hexCode: Array(8).fill("FF"),
-            unlocked: false
-        },
-        {
-            name: "Invader Croix",
-            hexCode: Array(8).fill("81"),
-            unlocked: false
+
+    <div id="main">
+        <h1>Invader Grid</h1>
+
+        <div id="grid"></div>
+
+        <button onclick="checkMatch()">Vérifier</button>
+        <button onclick="clearGrid()">Effacer tout</button>
+        <button onclick="showCurrentCode()">Montrer le code actuel</button>
+        <button id="randomButton" style="display:none;">Nouveau aléatoire</button>
+
+        <div id="result"></div>
+
+        <div id="current-code"
+            style="margin-top:10px; font-family: monospace;">
+        </div>
+    </div>
+
+    <script>
+
+        const invaders = [
+            {
+                name: "Invader Vide",
+                hexCode: Array(8).fill("00"),
+                unlocked: false
+            },
+            {
+                name: "Invader Plein",
+                hexCode: Array(8).fill("FF"),
+                unlocked: false
+            },
+            {
+                name: "Invader Croix",
+                hexCode: Array(8).fill("81"),
+                unlocked: false
+            }
+        ];
+
+        const grid = document.getElementById('grid');
+        const result = document.getElementById('result');
+
+        let currentTarget = 0;
+        let randomMode = false;
+
+        grid.style.gridTemplateColumns = "repeat(8, 30px)";
+        grid.style.gridTemplateRows = "repeat(8, 30px)";
+
+        for (let r = 0; r < 8; r++) {
+            for (let c = 0; c < 8; c++) {
+
+                const cell = document.createElement('div');
+
+                cell.classList.add('cell');
+                cell.dataset.row = r;
+                cell.dataset.col = c;
+
+                cell.addEventListener(
+                    'click',
+                    () => cell.classList.toggle('active')
+                );
+
+                grid.appendChild(cell);
+            }
         }
-        // Ajouter d'autres invaders 8x8 ici
-    ];
 
-    const grid = document.getElementById('grid');
-    let currentTarget = 0;
+        function displayHexCode(hexRows) {
 
-    // Création d'une grille 8x8
-    grid.style.gridTemplateColumns = "repeat(8, 30px)";
-    grid.style.gridTemplateRows = "repeat(8, 30px)";
-    for (let r = 0; r < 8; r++) {
-        for (let c = 0; c < 8; c++) {
-            const cell = document.createElement('div');
-            cell.classList.add('cell');
-            cell.dataset.row = r;
-            cell.dataset.col = c;
-            cell.addEventListener('click', () => cell.classList.toggle('active'));
-            grid.appendChild(cell);
-        }
-    }
+            clearGrid();
 
-    // --- Gestion du paramètre URL (compact : 32 caractères hexadécimaux) ---
-    function getUrlParams() {
-        const params = new URLSearchParams(window.location.search);
- 
-        const customCode = params.get('code');
-        const solutionCode = params.get('solution');
-        if (solutionCode) {
-            displayInvaderFromHex(solutionCode);
-        }
-    }
+            for (let r = 0; r < 8; r++) {
 
-    let customCode = getUrlParams(); 
-    if (customCode) { 
-        let cleaned = customCode.toUpperCase().replace(/[^0-9A-F]/g, ""); // sécurité 
-        if (cleaned.length === 16) { 
-            let customHex = []; 
-            for (let i = 0; i < 16; i += 2) { 
-                customHex.push(cleaned.substring(i, i + 2)); 
-            } 
-            invaders.splice(0, invaders.length, { name: "Invader personnalisé", hexCode: customHex, unlocked: false }); 
-        } else { 
-            alert("⚠️ Le code fourni n'est pas valide : il faut exactement 16 caractères hexadécimaux."); 
-        } 
-    }
+                const value = parseInt(hexRows[r], 16);
 
-    function getGridHex8x8() {
-    let hexRows = [];
-    for (let r = 0; r < 8; r++) {
-        let bin = '';
-        for (let c = 0; c < 8; c++) {
-            const cell = document.querySelector(`.cell[data-row='${r}'][data-col='${c}']`);
-            // Le bit de gauche (c=0) devient MSB
-            bin += cell.classList.contains('active') ? '1' : '0';
-        }
-        hexRows.push(parseInt(bin, 2).toString(16).padStart(2, '0').toUpperCase());
-    }
-    return hexRows;
-}
+                for (let c = 0; c < 8; c++) {
 
+                    const bit = (value >> (7 - c)) & 1;
 
-    function checkMatch() {
-        const currentHex = getGridHex8x8();
-        const targetHex = invaders[currentTarget].hexCode;
-        if (JSON.stringify(currentHex) === JSON.stringify(targetHex)) {
-            result.textContent = "✔️ Bravo !";
-            invaders[currentTarget].unlocked = true;
-        } else {
-            result.textContent = "❌ Ce n'est pas le bon invader.";
-        }
-    }
+                    const cell =
+                        document.querySelector(
+                            `.cell[data-row='${r}'][data-col='${c}']`
+                        );
 
-    function clearGrid() {
-        document.querySelectorAll('.cell').forEach(cell => cell.classList.remove('active'));
-    }
-    function displayInvaderFromHex(hexCode) {
-        clearGrid();
-    
-        let cleaned = hexCode.toUpperCase().replace(/[^0-9A-F]/g, "");
-    
-        if (cleaned.length !== 16) {
-            alert("⚠️ Le code solution doit contenir exactement 16 caractères hexadécimaux.");
-            return;
-        }
-    
-        for (let row = 0; row < 8; row++) {
-            const byteHex = cleaned.substring(row * 2, row * 2 + 2);
-            const bin = parseInt(byteHex, 16)
-                .toString(2)
-                .padStart(8, "0");
-    
-            for (let col = 0; col < 8; col++) {
-                if (bin[col] === "1") {
-                    const cell = document.querySelector(
-                        `.cell[data-row='${row}'][data-col='${col}']`
-                    );
-                    cell.classList.add("active");
+                    if (bit) {
+                        cell.classList.add('active');
+                    }
                 }
             }
         }
-    }
 
-    function showCurrentCode() {
-        const currentHex = getGridHex8x8();
-        document.getElementById('current-code').textContent = "Code actuel : " + currentHex.join('');
-    }
-</script>
+        function loadCustomInvader(hexString, name = "Invader personnalisé") {
+
+            let cleaned =
+                hexString
+                    .toUpperCase()
+                    .replace(/[^0-9A-F]/g, "");
+
+            if (cleaned.length !== 16) {
+                alert(
+                    "⚠️ Le code fourni n'est pas valide : il faut exactement 16 caractères hexadécimaux."
+                );
+                return;
+            }
+
+            const customHex = [];
+
+            for (let i = 0; i < 16; i += 2) {
+                customHex.push(cleaned.substring(i, i + 2));
+            }
+
+            invaders.splice(
+                0,
+                invaders.length,
+                {
+                    name,
+                    hexCode: customHex,
+                    unlocked: false
+                }
+            );
+
+            currentTarget = 0;
+
+            displayHexCode(customHex);
+        }
+
+        async function loadRandomInvader() {
+
+            try {
+
+                const response =
+                    await fetch("invader_list.txt");
+
+                const text =
+                    await response.text();
+
+                const codes =
+                    text
+                        .split(/\r?\n/)
+                        .map(l => l.trim())
+                        .filter(l => l.length > 0);
+
+                if (codes.length === 0) {
+                    alert("Aucun code trouvé dans invader_list.txt");
+                    return;
+                }
+
+                const randomCode =
+                    codes[
+                        Math.floor(
+                            Math.random() * codes.length
+                        )
+                    ];
+
+                loadCustomInvader(
+                    randomCode,
+                    "Invader aléatoire"
+                );
+
+            } catch (err) {
+
+                console.error(err);
+
+                alert(
+                    "Impossible de charger invader_list.txt"
+                );
+            }
+        }
+
+        async function processUrlParameters() {
+
+            const params =
+                new URLSearchParams(
+                    window.location.search
+                );
+
+            if (params.has("solution")) {
+
+                loadCustomInvader(
+                    params.get("solution")
+                );
+
+                return;
+            }
+
+            if (params.has("code")) {
+
+                loadCustomInvader(
+                    params.get("code")
+                );
+
+                return;
+            }
+
+            if (params.has("random")) {
+
+                randomMode = true;
+
+                document
+                    .getElementById("randomButton")
+                    .style.display = "inline-block";
+
+                await loadRandomInvader();
+            }
+        }
+
+        function getGridHex8x8() {
+
+            let hexRows = [];
+
+            for (let r = 0; r < 8; r++) {
+
+                let bin = '';
+
+                for (let c = 0; c < 8; c++) {
+
+                    const cell =
+                        document.querySelector(
+                            `.cell[data-row='${r}'][data-col='${c}']`
+                        );
+
+                    bin +=
+                        cell.classList.contains('active')
+                            ? '1'
+                            : '0';
+                }
+
+                hexRows.push(
+                    parseInt(bin, 2)
+                    .toString(16)
+                    .padStart(2, '0')
+                    .toUpperCase()
+                );
+            }
+
+            return hexRows;
+        }
+
+        function checkMatch() {
+
+            const currentHex =
+                getGridHex8x8();
+
+            const targetHex =
+                invaders[currentTarget].hexCode;
+
+            if (
+                JSON.stringify(currentHex) ===
+                JSON.stringify(targetHex)
+            ) {
+
+                result.textContent =
+                    "✔️ Bravo !";
+
+                invaders[currentTarget].unlocked = true;
+
+            } else {
+
+                result.textContent =
+                    "❌ Ce n'est pas le bon invader.";
+            }
+        }
+
+        function clearGrid() {
+
+            document
+                .querySelectorAll('.cell')
+                .forEach(
+                    cell =>
+                        cell.classList.remove('active')
+                );
+        }
+
+        function showCurrentCode() {
+
+            const currentHex =
+                getGridHex8x8();
+
+            document
+                .getElementById('current-code')
+                .textContent =
+                "Code actuel : " +
+                currentHex.join('');
+        }
+
+        document
+            .getElementById("randomButton")
+            .addEventListener(
+                "click",
+                loadRandomInvader
+            );
+
+        processUrlParameters();
+
+    </script>
+
 </body>
 </html>
