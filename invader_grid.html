@@ -121,7 +121,12 @@
     // --- Gestion du paramètre URL (compact : 32 caractères hexadécimaux) ---
     function getUrlParams() {
         const params = new URLSearchParams(window.location.search);
-        return params.get('code');
+ 
+        const customCode = params.get('code');
+        const solutionCode = params.get('solution');
+        if (solutionCode) {
+            displayInvaderFromHex(solutionCode);
+        }
     }
 
     let customCode = getUrlParams(); 
@@ -166,6 +171,32 @@
 
     function clearGrid() {
         document.querySelectorAll('.cell').forEach(cell => cell.classList.remove('active'));
+    }
+    function displayInvaderFromHex(hexCode) {
+        clearGrid();
+    
+        let cleaned = hexCode.toUpperCase().replace(/[^0-9A-F]/g, "");
+    
+        if (cleaned.length !== 16) {
+            alert("⚠️ Le code solution doit contenir exactement 16 caractères hexadécimaux.");
+            return;
+        }
+    
+        for (let row = 0; row < 8; row++) {
+            const byteHex = cleaned.substring(row * 2, row * 2 + 2);
+            const bin = parseInt(byteHex, 16)
+                .toString(2)
+                .padStart(8, "0");
+    
+            for (let col = 0; col < 8; col++) {
+                if (bin[col] === "1") {
+                    const cell = document.querySelector(
+                        `.cell[data-row='${row}'][data-col='${col}']`
+                    );
+                    cell.classList.add("active");
+                }
+            }
+        }
     }
 
     function showCurrentCode() {
