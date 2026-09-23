@@ -75,9 +75,10 @@
 <div id="main">
     <h1>Invader Grid</h1>
     <div id="grid"></div>
-    <button onclick="checkMatch()">Vérifier</button>
-    <button onclick="clearGrid()">Effacer tout</button>
-    <button onclick="showCurrentCode()">Montrer le code actuel</button>
+    <button id="check-btn" onclick="checkMatch()">Vérifier</button>
+    <button id="clear-btn" onclick="clearGrid()">Effacer tout</button>
+    <button id="new-random-btn" onclick="loadRandomInvader()" style="display:none;">Nouveau</button>
+    <button id="show-code-btn" onclick="showCurrentCode()">Montrer le code actuel</button>
     <div id="result"></div>
     <div id="current-code" style="margin-top:10px; font-family: monospace;"></div>
 </div>
@@ -118,17 +119,7 @@
         }
     }
 
-    // --- Gestion du paramètre URL (compact : 32 caractères hexadécimaux) ---
-    function getUrlParams() {
-        const params = new URLSearchParams(window.location.search);
- 
-        const customCode = params.get('code');
-        const solutionCode = params.get('solution');
-        if (solutionCode) {
-            displayInvaderFromHex(solutionCode);
-        }
-    }
-
+    // URL parameters handling
     let customCode = getUrlParams(); 
     if (customCode) { 
         let cleaned = customCode.toUpperCase().replace(/[^0-9A-F]/g, ""); // sécurité 
@@ -143,19 +134,60 @@
         } 
     }
 
-    function getGridHex8x8() {
-    let hexRows = [];
-    for (let r = 0; r < 8; r++) {
-        let bin = '';
-        for (let c = 0; c < 8; c++) {
-            const cell = document.querySelector(`.cell[data-row='${r}'][data-col='${c}']`);
-            // Le bit de gauche (c=0) devient MSB
-            bin += cell.classList.contains('active') ? '1' : '0';
+    function getUrlParams() {
+        const params = new URLSearchParams(window.location.search)
+
+        const customCode = params.get('code');
+        const solutionCode = params.get('solution');
+        const random_flag = params.has('random');
+        if (solutionCode) {
+            displayInvaderFromHex(solutionCode);
         }
-        hexRows.push(parseInt(bin, 2).toString(16).padStart(2, '0').toUpperCase());
+        if (random_flag){
+            loadRandomInvader();
+            document.getElementById("new-random-btn").style.display = "inline-block";
+            document.getElementById("clear-btn").style.display = "none";
+            document.getElementById("check-btn").style.display = "none";
+        }
+        return customCode;
     }
-    return hexRows;
-}
+
+    function getGridHex8x8() {
+        let hexRows = [];
+        for (let r = 0; r < 8; r++) {
+            let bin = '';
+            for (let c = 0; c < 8; c++) {
+                const cell = document.querySelector(`.cell[data-row='${r}'][data-col='${c}']`);
+                // Le bit de gauche (c=0) devient MSB
+                bin += cell.classList.contains('active') ? '1' : '0';
+            }
+            hexRows.push(parseInt(bin, 2).toString(16).padStart(2, '0').toUpperCase());
+        }
+        return hexRows;
+    }
+
+    async function loadRandomInvader() {
+        try {
+            const response = await fetch("invader_list.txt");
+            const text = await response.text();
+            
+            const codes = text
+                .split(/\r?\n/)
+                .map(line => line.trim().toUpperCase())
+                .filter(line => /^[0-9A-F]{16}$/.test(line));
+            
+            if (codes.length === 0) {
+                alert("Aucun invader valide trouvé dans invader_list.txt");
+                return;
+            }
+
+        const randomCode = codes[Math.floor(Math.random() * codes.length)];
+        displayInvaderFromHex(randomCode);
+        } catch (e) {
+            alert("Impossible de charger invader_list.txt");
+            console.error(e);
+        }
+    }
 
 
     function checkMatch() {
@@ -172,6 +204,7 @@
     function clearGrid() {
         document.querySelectorAll('.cell').forEach(cell => cell.classList.remove('active'));
     }
+
     function displayInvaderFromHex(hexCode) {
         clearGrid();
     
